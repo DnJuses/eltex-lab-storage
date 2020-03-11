@@ -19,7 +19,7 @@ int main()
     int choice = 0;
     while(1)
     {
-        system("cls");
+        system("clear");
         printf("|Integral Type Calculator|\n\n"
                " Type in the number of command you want to perform\n"
                " 1 - Addition\n"
@@ -30,7 +30,7 @@ int main()
                "Your choice: ");
         if(scanf("%d", &choice) == 1)
         {
-            system("cls");
+            system("clear");
             int a = 0, b = 0;
             switch(choice)
             {
@@ -38,32 +38,32 @@ int main()
                 printf("|Addition|\n\n");
                 c_readUserValues(&a, &b);
                 printf("Result: %d\n", c_add(a, b));
-                system("pause");
+	        system("read -p 'Press ENTER to continue...' var");
                 break;
                 case 2:
                 printf("|Substraction|\n\n");
                 c_readUserValues(&a, &b);
                 printf("Result: %d\n", c_sub(a, b));
-                system("pause");
+		system("read -p 'Press ENTER to continue...' var");
                 break;
                 case 3:
                 printf("|Multiplication|\n\n");
                 c_readUserValues(&a, &b);
                 printf("Result: %d\n", c_mul(a, b));
-                system("pause");
+		system("read -p 'Press ENTER to continue...' var");
                 break;
                 case 4:
                 printf("|Division|\n\n");
                 c_readUserValues(&a, &b);
                 printf("Result: %d\n", c_div(a, b));
-                system("pause");
+     		system("read -p 'Press ENTER to continue...' var");
                 break;
                 case 5:
                 c_exit();
                 break;
                 default:
                 printf("Unknown command\n");
-                system("pause");
+                system("read -p 'Press ENTER to continue...' var");
                 continue;
             }
         }

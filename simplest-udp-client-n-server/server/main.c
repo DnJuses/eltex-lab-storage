@@ -8,82 +8,80 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
-static int funcsResults = 0;
+struct message
+{
+    char msg[10];
+    int actualrecv;
+};
 
-int isvalidsocket(int);
-void startServer(int);
+int sendwmsg(int, struct sockaddr_in*);
+struct message recvwmsg(int, struct sockaddr_in*);
+
 
 int main(void)
 {
 	struct sockaddr_in local;
+    struct sockaddr_in client;
+    struct message wmessage;
+    int clientLen = 0;
     int ssock = 0;
     bzero(&local, sizeof(local));
+    bzero(&client, sizeof(client));
+    bzero(&wmessage, sizeof(wmessage));
 	local.sin_family = AF_INET;
     local.sin_port = htons(60000);
 	local.sin_addr.s_addr = htons(INADDR_ANY);
 	ssock = socket(AF_INET, SOCK_DGRAM, 0);
-    if(!isvalidsocket(ssock))
+    if(ssock < 0)
     {
     	printf("Server socket descriptor %d is not valid | code: %d\n", errno, ssock);
-    	exit(-1);
+    	return -1;
     }
-    funcsResults = bind(ssock, (struct sockaddr*)&local, sizeof(local));
-    if(funcsResults < 0)
+    if(bind(ssock, (struct sockaddr*)&local, sizeof(local)))
     {
     	printf("Failed to bind socket | code: %d\n", errno);
-    	exit(-1);
+    	return -1;
     }
-    startServer(ssock);
+    while(1)
+    {
+        clientLen = sizeof(client);
+        printf("Waiting for welcoming message...\n");
+        wmessage = recvwmsg(ssock, &client);
+        if(wmessage.actualrecv <= 0)
+        {
+            printf("Error accured during welcome message transmission from client to server | code: %d\n", errno);
+            continue;
+        }
+        printf("Message from client: %s\n", wmessage.msg);
+        printf("Received\n\n");
+        printf("Sending welcoming message...\n");
+        if (sendwmsg(ssock, &client) <= 0) 
+        {
+            printf("Error accured during welcome message transmission from server to client | code: %d\n", errno);
+            continue;
+        }
+        printf("Sent!\n\n");
+    }
     printf("Server closing in progress...\n");
-    funcsResults = close(ssock);
-	if(funcsResults)
+	if(close(ssock))
 	{
 		printf("Unable to close server socket | code: %d\n", errno);
 	}
-    printf("Server closed.\n");
-    exit(0);
+    printf("Server closed.\n\n");
+    return 0;
 }
 
-int isvalidsocket(int s)
+int sendwmsg(int s, struct sockaddr_in* server)
 {
-	return s >= 0;
+    int sent = 0;
+    sent = sendto(s, "Hello!", 6, 0, (struct sockaddr*)server, sizeof(*server));
+    return sent;
 }
 
-void startServer(int s)
+struct message recvwmsg(int s, struct sockaddr_in* server)
 {
-    struct sockaddr_in client;
-    int clientLen = 0;
-    char buf[3] = "";
-    do
-    {
-        clientLen = sizeof(client);
-        funcsResults = recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr*)&client, &clientLen);
-        if(funcsResults >= 0)
-        {
-            printf("Client connected\n");
-            printf("Sending pong to client...\n");
-            funcsResults = sendto(s, "", 1, 0, (struct sockaddr*)&client, clientLen);
-            if (funcsResults < 0) 
-            {
-                printf("Error accured during pong sending | code: %d\n", errno);
-                return;
-            }
-            printf("Waiting for welcoming message...\n");
-            funcsResults = recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr*)&client, &clientLen);
-            if (funcsResults < 0) 
-            {
-                printf("Error accured during welcome message transmission from client to server | code: %d\n", errno);
-                return;
-            }
-            printf("Message: %s\n", buf);
-            printf("Sending welcoming message...\n");
-            funcsResults = sendto(s, "Hello!", 6, 0, (struct sockaddr*)&client, clientLen);
-            if (funcsResults < 0) 
-            {
-                printf("Error accured during welcome message transmission from server to client | code: %d\n", errno);
-                return;
-            }
-            printf("Sent!\n");
-        }
-    } while(0);
+    struct message recwm = {"", 0};
+    int len = sizeof(*server);
+    recwm.actualrecv = recvfrom(s, recwm.msg, sizeof(recwm.msg), 0, (struct sockaddr*)server, &len);
+    return recwm;
 }

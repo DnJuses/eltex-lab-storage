@@ -8,18 +8,20 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
-static int funcsResults = 0;
+struct message
+{
+    char msg[10];
+    int actualrecv;
+};
 
-int isvalidsocket(int);
-int verifyConnection(int);
-void sendWelcomeMsg(int);
-void recvWelcomeMsg(int);
+struct message recvwmsg(int); // Receive welcoming message from client
+int sendwmsg(int); // Send welcoming message to client
+void closeconnect(int); // Close connection on socket
 
 int main(void)
 {
 	struct sockaddr_in local;
 	struct sockaddr_in client;
-	const int on = 1;
 	int clientLen = 0;
 	int csock = 0;
     int ssock = 0;
@@ -29,83 +31,78 @@ int main(void)
     local.sin_port = htons(60000);
 	local.sin_addr.s_addr = htons(INADDR_ANY);
 	ssock = socket(AF_INET, SOCK_STREAM, 0);
-    setsockopt(ssock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-    if(!isvalidsocket(ssock))
+    if(ssock < 0)
     {
     	printf("Server socket descriptor %d is not valid | code: %d\n", errno, ssock);
-    	exit(-1);
+    	return -1;
     }
-    funcsResults = bind(ssock, (struct sockaddr*)&local, sizeof(local));
-    if(funcsResults < 0)
+    if(bind(ssock, (struct sockaddr*)&local, sizeof(local)) < 0)
     {
     	printf("Failed to bind socket | code: %d\n", errno);
-    	exit(-1);
+    	return -1;
     }
-    funcsResults = listen(ssock, 5);
-    if(funcsResults < 0)
+    if(listen(ssock, 5) < 0)
     {
     	printf("Failed to set socket to listen | code: %d\n", errno);
-    	exit(-1);
+    	return -1;
     }
     printf("Listening on port 60000....\n\n");
-    do 
+    while(1)
     {
     	clientLen = sizeof(client);
+        csock = -2;
     	csock = accept(ssock, (struct sockaddr*)&client, &clientLen);
-    	printf("Incoming connection...\nSocket Descriptor: %d\nAddress: %s\n\n", csock, inet_ntoa(client.sin_addr));
-    	if(!isvalidsocket(csock))
+    	if(csock < 0)
     	{
     		printf("Client socket descriptor %d is not valid | code: %d\n", errno, csock);
-    		exit(-1);
+    		continue;
     	}
-    	recvWelcomeMsg(csock);
-    	sendWelcomeMsg(csock);
+        printf("Incoming connection...\nSocket Descriptor: %d\nAddress: %s\n\n", csock, inet_ntoa(client.sin_addr));
+        printf("Waiting for welcoming message from client side\n");
+        struct message wmessage = recvwmsg(csock);
+    	if(wmessage.actualrecv <= 0)
+        {
+            printf("Error accured during welcome message transmission from client to server | code: %d\n", errno);
+            closeconnect(csock);
+            continue;
+        }
+        printf("Message from client: %s\n", wmessage.msg);
+        printf("Received!\n\n");
+        printf("Sending a welcoming message...\n");
+    	if(sendwmsg(csock) <= 0)
+        {
+            printf("Error accured during welcome message transmission from server to client | code: %d\n", errno);
+            closeconnect(csock);
+            continue;
+        }
+        printf("Sent!\n\n");
     	printf("Closing connection with address %s\n", inet_ntoa(client.sin_addr));
-    	funcsResults = close(csock);
-    	if(funcsResults)
-    	{
-    		printf("Unable to close connection with socket | code: %d\n", errno);
-    	}
-    } while(0); // For now we only looking for 1 connection
-    			// If more is needed, just change cycle pred from 0 to 1
-    funcsResults = close(ssock);
-	if(funcsResults)
-	{
-		printf("Unable to close server socket | code: %d\n", errno);
-	}
-    exit(0);
+        closeconnect(csock);
+        printf("Closed!\n\n");
+    }
+    closeconnect(ssock);
+    return 0;
 }
 
-int isvalidsocket(int s)
+struct message recvwmsg(int s)
 {
-	return s >= 0;
+    struct message recvm = {"", 0};
+    recvm.actualrecv = recv(s, recvm.msg, sizeof(recvm.msg), 0);
+    return recvm;
 }
 
-void sendWelcomeMsg(int s)
-{
-	printf("Sending a welcoming message...\n");
 
-	char buf[7] = "Hello!";
-	funcsResults = send(s, buf, sizeof(buf), 0);
-	if(funcsResults <= 0)
-	{
-		printf("Error accured during welcome message transmission from server to client | code: %d\n", errno);
-		return;
-	}
-	printf("Sent!\n\n");
+int sendwmsg(int s)
+{
+	char buf[6] = "Hello!";
+	int sent = send(s, buf, sizeof(buf), 0);
+    return sent;
 }
 
-void recvWelcomeMsg(int s)
+void closeconnect(int s)
 {
-	printf("Waiting for welcoming message from client side\n");
-	const int bufSize = 10;
-	char buf[bufSize];
-	funcsResults = recv(s, buf, bufSize, 0);
-	if(funcsResults <= 0)
-	{
-		printf("Error accured during welcome message transmission from client to server | code: %d\n", errno);
-		return;
-	}
-	printf("%s\n", buf);
-	printf("Received!\n\n");
+    if(close(s))
+    {
+        printf("Unable to close socket %d | code: %d\n", s, errno);
+    }
 }

@@ -8,66 +8,71 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
-static int funcsResults = 0;
+struct message
+{
+    char msg[10];
+    int actualrecv;
+};
 
-int isvalidsocket(int);
-void sendWelcomeMsg(int);
-void recvWelcomeMsg(int);
+int sendwmsg(int);
+struct message recvwmsg(int);
 
 int main(void)
 {
-    const int bufSize = 10;
-    char buf[bufSize];
 	struct sockaddr_in local;
+    struct message wmessage;
 	int csock = socket(AF_INET, SOCK_STREAM, 0);
+    bzero(&wmessage, sizeof(wmessage));
     bzero(&local, sizeof(local));
 	local.sin_family = AF_INET;
     local.sin_port = htons(60000);
 	local.sin_addr.s_addr = inet_addr("127.0.0.1");
-    if(!isvalidsocket(csock))
+    if(csock < 0)
     {
     	printf("Client socket descriptor %d is not valid | code: %d\n", errno, csock);
-    	exit(-1);
+    	return -1;
     }
-    funcsResults = connect(csock, (struct sockaddr*)&local, sizeof(local));
-    if(funcsResults)
+    printf("Connecting to %s:%d...\n", inet_ntoa(local.sin_addr), ntohs(local.sin_port));
+    if(connect(csock, (struct sockaddr*)&local, sizeof(local)))
     {
     	printf("Failed to connect | code: %d\n", errno);
-    	exit(-1);
+    	return -1;
     }
-    sendWelcomeMsg(csock);
-    recvWelcomeMsg(csock);
-    close(csock);
-}
-
-int isvalidsocket(int s)
-{
-    return s >= 0;
-}
-
-void sendWelcomeMsg(int s)
-{
+    printf("Connected!\n\n");
     printf("Sending a welcoming message...\n");
-    char buf[4] = "Hi!";
-    funcsResults = send(s, buf, sizeof(buf), 0);
-    if(funcsResults <= 0)
+    if(sendwmsg(csock) < 0)
     {
         printf("Error accured during welcome message transmission from client to server | code: %d\n", errno);
-        return;
+        return -1;
     }
     printf("Sent!\n\n");
-}
-void recvWelcomeMsg(int s)
-{
     printf("Waiting for welcoming message from server side\n");
-    const int bufSize = 10;
-    char buf[bufSize];
-    funcsResults = recv(s, buf, bufSize, 0);
-    if(funcsResults <= 0)
+    wmessage = recvwmsg(csock);
+    if(wmessage.actualrecv <= 0)
     {
         printf("Error accured during welcome message transmission from server to client | code: %d\n", errno);
-        return;
+        return -1;
     }
-    printf("%s\n", buf);
+    printf("Message from server: %s\n", wmessage.msg);
     printf("Received!\n\n");
+    printf("Closing client's session...\n");
+    if(close(csock))
+    {
+        printf("Failed to close client socket\n");
+    }
+    printf("Session successfully closed.\n");
+    return 0;
+}
+
+int sendwmsg(int s)
+{
+    char buf[3] = "Hi!";
+    int sent = send(s, buf, sizeof(buf), 0);
+    return sent;
+}
+struct message recvwmsg(int s)
+{
+    struct message recvm = {"", 0};
+    recvm.actualrecv = recv(s, recvm.msg, sizeof(recvm.msg), 0);
+    return recvm;
 }
